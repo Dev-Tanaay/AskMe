@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Streaming Chat</title>
+</head>
+<body>
+    <button id="startBtn">Start Stream</button>
+    <button id="stopBtn" disabled>Stop Stream</button>
+    <div id="output"></div>
+
+    <script>
+        const outputDiv = document.getElementById('output');
+        const streamId = Date.now().toString();
+        let isStreaming = false;
+
+        document.getElementById('startBtn').addEventListener('click', startStream);
+        document.getElementById('stopBtn').addEventListener('click', stopStream);
+
+        async function startStream() {
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            outputDiv.innerHTML = '';
+            isStreaming = true;
+
+            const response = await fetch("http://localhost:3001/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: "What is greatness?", streamId })
+            });
+
+            if (response.ok) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done || !isStreaming) break;
+
+                    const chunk = decoder.decode(value);
+                    outputDiv.innerHTML += chunk;
+                }
+
+                outputDiv.innerHTML += '<br/><strong>Stream Ended</strong>';
+            } else {
+                outputDiv.innerHTML += `<br/><strong>Error: ${response.status}</strong>`;
+            }
+
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            isStreaming = false;
+        }
+
+        async function stopStream() {
+            document.getElementById('stopBtn').disabled = true;
+            await fetch("http://localhost:3001/stop-stream", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ streamId })
+            });
+            isStreaming = false;
+        }
+    </script>
+</body>
+</html>
